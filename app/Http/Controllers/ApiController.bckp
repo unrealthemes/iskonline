@@ -1,0 +1,260 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use simplehtmldom\HtmlWeb;
+
+class ApiController extends Controller
+{
+
+    static public function getAddressRegion($addr)
+    {
+        $token = "1689fbde959d4bae73931d54024ec2056fca3b74";
+        $dadata = new \Dadata\DadataClient($token, null);
+        $result = $dadata->suggest("address", $addr);
+        return (int)mb_substr($result[0]['data']['region_kladr_id'], 0, 2);
+    }
+
+    static public function standartAddress($addr)
+    {
+        $token = "1689fbde959d4bae73931d54024ec2056fca3b74";
+        $dadata = new \Dadata\DadataClient($token, null);
+        $result = $dadata->suggest("address", $addr);
+        if (count($result)) {
+            return $result[0]['unrestricted_value'];
+        }
+        return $addr;
+    }
+
+    static public function getCourtMoscow($addr)
+    {
+        $token = "6d5b383938f721343dabc5f3994ef98f";
+
+        // запрос по адресу
+        $address = $addr; // формат: Город, улица, дом
+        $url = "https://podsudnost.ru/request.php?token=" . $token . "&address=" . urlencode($address);
+
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        $data = curl_exec($curl);
+        curl_close($curl);
+
+        $res = json_decode($data, true);
+
+        if (array_key_exists("court_ms", $res)) {
+            return $res['court_ms'];
+        }
+
+        return [];
+    }
+
+    static public function request($method, $url, $data = [], $headers = [])
+    {
+        $curl = curl_init();
+
+        switch ($method) {
+            case "POST":
+                curl_setopt($curl, CURLOPT_POST, 1);
+
+                if ($data)
+                    curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+                break;
+            case "PUT":
+                curl_setopt($curl, CURLOPT_PUT, 1);
+                break;
+            default:
+                if ($data)
+                    $url = sprintf("%s?%s", $url, http_build_query($data));
+        }
+
+        // Optional Authentication:
+
+        curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
+
+        $result = curl_exec($curl);
+
+        curl_close($curl);
+
+        return $result;
+    }
+
+    static public function getCourtDebex($addr)
+    {
+        $token = "productionKeuywugfdo823hpishdld";
+        $data = json_decode(ApiController::request(
+            "POST",
+            "https://api-yc.explorer.debex.ru/production/jurisdiction",
+            json_encode(["address" => "$addr"]),
+            [
+                "x-api-key: $token",
+                "Content-Type:application/json"
+            ]
+        ), true);
+
+        $courts_masks = [
+            "court" => "MAGISTRATE",
+            "higher_court" => "COURT"
+        ];
+
+        if ($data['status'] == "ok") {
+            $answ = [];
+            foreach ($data["result"] as $c => $court) {
+                $answ[$courts_masks[$c]] = [
+                    'title' => str_replace("Мировому судье судебного участка", "Судебный участок", $court["name"]),
+                    'address' => ApiController::standartAddress($court["address"]),
+                    'site' => $court["website"],
+                    'email' => $court['email'],
+                    'phone' => $court['phone'],
+                    'receiver' => $court['ufk.name'],
+                    'inn' => $court['ufk.inn'],
+                    'bik' => $court['ufk.bik'],
+                    'kpp' => $court['ufk.kpp'],
+                    'oktmo' => $court['ufk.oktmo'],
+                    'kbk' => $court['ufk.kbk'],
+                    'correspond' => $court['ufk.correspondent_account'],
+                    'calculated' => $court['ufk.account'],
+                    'bank' => $court['ufk.bank'],
+                ];
+            }
+
+            return $answ;
+        }
+
+        return [];
+    }
+
+    static public function getCourtRussia($addr)
+    {
+        $token = "c62b9058-e3b2-439c-93c7-0a5fa8f48c40";
+        $package_id = json_decode(ApiController::request(
+            "POST",
+            "https://svc.csbi.ru/api/v2/query1str",
+            json_encode([["TARGET" => ["MAGISTRATE", "COURT"], "ID_CONTRACT" => 234, "ADDRESS" => $addr]]),
+            [
+                "Key: $token",
+                'Content-Type:application/json'
+            ]
+        ), true)['PACKAGE_ID'];
+
+        $data = [];
+
+        for ($i = 0; $i < 10; $i++) {
+
+            sleep(1);
+
+            $data = json_decode(ApiController::request(
+                "POST",
+                "https://svc.csbi.ru/api/v2/status",
+                json_encode(["PACKAGE_ID" => (int)$package_id]),
+                [
+                    "Key: $token",
+                    'Content-Type:application/json'
+                ]
+            ), true);
+
+            if ($data['STATUS'] == 3) {
+                break;
+            }
+        }
+
+        $data = json_decode(ApiController::request(
+            "POST",
+            "https://svc.csbi.ru/api/v2/getdata",
+            json_encode(["PACKAGE_ID" => (int)$package_id]),
+            [
+                "Key: $token",
+                'Content-Type:application/json'
+            ]
+        ), true);
+
+        if (count($data) > 0 and !array_key_exists('error', $data)) {
+            $answ = ['package' => $package_id];
+            foreach ($data as $c) {
+                $court = $c;
+                $court['COURT_DISTRICT_TYPE'] = array_key_exists('COURT_DISTRICT_TYPE', $court) ? $court['COURT_DISTRICT_TYPE'] : "";
+                $court['COURT_DISTRICT_NAME'] = array_key_exists('COURT_DISTRICT_NAME', $court) ? $court['COURT_DISTRICT_NAME'] : "";
+                $court['COURT_CITY_TYPE'] = array_key_exists('COURT_CITY_TYPE', $court) ? $court['COURT_CITY_TYPE'] : "";
+                $court['COURT_CITY_NAME'] = array_key_exists('COURT_CITY_NAME', $court) ? $court['COURT_CITY_NAME'] : "";
+
+                $addr = "$court[COURT_REGION_TYPE] $court[COURT_REGION_NAME], $court[COURT_DISTRICT_TYPE] $court[COURT_DISTRICT_NAME] $court[COURT_CITY_TYPE] $court[COURT_CITY_NAME], $court[COURT_STREET_TYPE] $court[COURT_STREET_NAME], $court[COURT_HOUSE]";
+
+                $answ[$court["TARGET"]] = [
+                    'title' => $court["COURT_NAME"],
+                    'address' => ApiController::standartAddress($addr),
+                    'site' => '',
+                    'email' => $court['COURT_EMAIL'],
+                    'phone' => $court['COURT_PHONE'],
+                    'receiver' => $court['PAYEE_NAME'],
+                    'inn' => $court['INN'],
+                    'bik' => $court['BIK'],
+                    'kpp' => $court['KPP'],
+                    'oktmo' => $court['OKTMO'],
+                    'kbk' => $court['KBK'],
+                    'correspond' => $court['EKS'],
+                    'calculated' => $court['NKS'],
+                    'bank' => $court['BANK_NAME'],
+                ];
+            }
+
+            return $answ;
+        }
+        return ['package' => $package_id];
+    }
+
+    static public function getCourt($addr)
+    {
+        $region = ApiController::getAddressRegion($addr);
+
+        if ($region == 77) {
+            return ApiController::getCourtMoscow($addr);
+        }
+
+        return ApiController::getCourtRussia($addr);
+
+        return [];
+    }
+
+    static public function getRate(Request $request)
+    {
+        $data = $request->all();
+        $from = date('d.m.Y', strtotime($data['from']) - 60 * 60 * 24 * 5);
+        $to = date('d.m.Y', strtotime($data['to']) + 60 * 60 * 24 * 5);
+
+
+        $query = "https://cbr.ru/hd_base/KeyRate/?UniDbQuery.Posted=True&UniDbQuery.From=$from&UniDbQuery.To=$to";
+
+        // echo $query;
+        // echo "<br>";
+        // Получение ставки рефинансирования
+        $client = new HtmlWeb();
+        $html = $client->load($query);
+        $rates = [];
+
+        $trs = $html->find('table.data', 0)->find('tr');
+
+        foreach ($trs as $i => $tr) {
+            if ($i != 0) {
+                $refinancing = (float)str_replace(",", ".", $tr->find('td', 1)->plaintext);
+
+                $rates[] = $refinancing;
+            }
+        }
+
+        $c = count($rates);
+        $refinancing = array_sum($rates) / $c;
+
+        if ($data['from'] == $data['to']) {
+            $refinancing = $rates[0];
+        }
+
+
+        return response()->json(['rate' => $refinancing]);
+    }
+}

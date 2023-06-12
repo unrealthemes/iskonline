@@ -1,0 +1,1 @@
+<button class="position-relative nav-link {{ $active ? 'active' : '' }}" id="{{ $tabId }}" data-bs-toggle="tab" data-bs-target="#{{ $contentId }}" type="button" role="tab" aria-controls="{{ $contentId }}" aria-selected="true">{{ $slot }}</button>

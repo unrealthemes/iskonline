@@ -1,0 +1,41 @@
+{
+    "private": true,
+    "scripts": {
+        "dev": "npm run development",
+        "development": "mix",
+        "watch": "mix watch",
+        "watch-poll": "mix watch -- --watch-options-poll=1000",
+        "hot": "mix watch --hot",
+        "prod": "npm run production",
+        "production": "mix --production"
+    },
+    "devDependencies": {
+        "axios": "^0.21",
+        "cross-env": "^7.0.3",
+        "laravel-mix": "^6.0.6",
+        "lodash": "^4.17.19",
+        "postcss": "^8.1.14",
+        "resolve-url-loader": "^4.0.0",
+        "sass": "^1.54.0",
+        "sass-loader": "^12.6.0"
+    },
+    "dependencies": {
+        "@fancyapps/ui": "^4.0.30",
+        "@fortawesome/fontawesome-free": "^6.2.0",
+        "@mboussaid/contextmenu.js": "^1.0.0",
+        "@popperjs/core": "^2.11.5",
+        "bootstrap": "^5.2.0",
+        "font-awesome": "^4.7.0",
+        "jquery": "^3.6.0",
+        "jquery.maskedinput": "^1.4.1",
+        "popper.js": "^1.16.1",
+        "responsive-sketchpad": "^1.2.4",
+        "select2": "^4.1.0-rc.0",
+        "sign-area": "0.0.7",
+        "slick-carousel": "^1.8.1",
+        "sortablejs": "^1.15.0",
+        "sweetalert": "^2.1.2",
+        "sweetalert2": "^11.6.4",
+        "webpack": "^5.74.0"
+    }
+}

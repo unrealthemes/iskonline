@@ -1,0 +1,1 @@
+<div data-bs-toggle="modal" data-bs-target="#{{ $id }}" role="button">{{ $slot }}</div>

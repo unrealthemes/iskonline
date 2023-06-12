@@ -1,0 +1,1 @@
+<div class="tab-pane fade {{ $active ? 'show active' : '' }} mt-3" id="{{ $contentId }}" role="tabpanel" aria-labelledby="{{ $tabId }}" tabindex="0">{{ $slot }}</div>

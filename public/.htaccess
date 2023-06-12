@@ -1,0 +1,12 @@
+Options +FollowSymLinks
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]
+
+
+# AuthType Basic
+# AuthName "Access Denied"
+# AuthUserFile /var/www/u0725844/data/www/forview.site/isk_online/public/.htpasswd
+# Require valid-user
